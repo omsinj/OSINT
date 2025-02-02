@@ -1,3 +1,7 @@
+streamlit
+os
+subprocess
+datetime
 pandas
 numpy
 selenium
