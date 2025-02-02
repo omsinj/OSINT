@@ -23,36 +23,49 @@ import streamlit as st
 
 nltk.download("stopwords")
 
-def install_chromium():
-    """
-    Ensures Chromium and ChromeDriver are installed on the cloud environment.
-    """
-    os.system("apt update")
-    os.system("apt install -y chromium-browser chromium-chromedriver")
+# Set paths for Chromium and ChromeDriver (Streamlit Cloud-Compatible)
+CHROMIUM_PATH = "/usr/bin/chromium-browser"
+CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 
 def get_driver():
     """
-    Configures Selenium WebDriver to use Chromium in a cloud environment.
+    Configures Selenium WebDriver to use a pre-installed Chromium binary on Streamlit Cloud.
     """
-    chrome_path = shutil.which("chromium-browser") or shutil.which("chromium")
-    driver_path = shutil.which("chromedriver")
-
-    if not chrome_path or not driver_path:
-        install_chromium()
-        chrome_path = shutil.which("chromium-browser") or shutil.which("chromium")
-        driver_path = shutil.which("chromedriver")
+    if not os.path.exists(CHROMIUM_PATH) or not os.path.exists(CHROMEDRIVER_PATH):
+        raise Exception("Chromium or ChromeDriver not found in the expected locations.")
 
     options = Options()
-    options.binary_location = chrome_path  # Use cloud-compatible Chrome binary
-    options.add_argument("--headless")  # Run headless (no UI)
-    options.add_argument("--no-sandbox")  # Required for cloud environments
-    options.add_argument("--disable-dev-shm-usage")  # Prevent crashes
-    options.add_argument("--disable-gpu")  # No GPU rendering
-    options.add_argument("--remote-debugging-port=9222")  # Debugging support
+    options.binary_location = CHROMIUM_PATH  # Use pre-installed Chromium
+    options.add_argument("--headless")  # Run in headless mode
+    options.add_argument("--no-sandbox")  # Required for Streamlit Cloud
+    options.add_argument("--disable-dev-shm-usage")  # Prevent memory crashes
+    options.add_argument("--disable-gpu")  # Disable GPU acceleration
+    options.add_argument("--remote-debugging-port=9222")
 
-    service = Service(driver_path)
+    # Launch WebDriver
+    service = Service(CHROMEDRIVER_PATH)
     driver = webdriver.Chrome(service=service, options=options)
     return driver
+
+def scrape_bbc_headlines():
+    """
+    Scrapes the latest headlines from BBC News using Selenium in Streamlit Cloud.
+    Returns a Pandas DataFrame containing the headlines.
+    """
+    driver = get_driver()
+
+    try:
+        driver.get("https://www.bbc.com/news")
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "h3"))
+        )
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+    finally:
+        driver.quit()
+
+    headlines = [item.get_text(strip=True) for item in soup.find_all("h3") if item.get_text(strip=True)]
+    
+    return pd.DataFrame({"Headline": headlines, "Scraped At": datetime.now()})
 
 def scrape_bbc_headlines():
     """
