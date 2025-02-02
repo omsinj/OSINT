@@ -23,27 +23,36 @@ import streamlit as st
 
 nltk.download("stopwords")
 
-# Set paths for Chromium and ChromeDriver (Streamlit Cloud-Compatible)
-CHROMIUM_PATH = "/usr/bin/chromium-browser"
-CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
+def install_chromium():
+    """
+    Downloads and installs Chromium and ChromeDriver in Streamlit Cloud.
+    """
+    if not os.path.exists("/usr/bin/chromedriver"):
+        os.system("wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip")
+        os.system("unzip chromedriver_linux64.zip")
+        os.system("sudo mv chromedriver /usr/bin/chromedriver")
+        os.system("sudo chmod +x /usr/bin/chromedriver")
+
+    if not os.path.exists("/usr/bin/chromium-browser"):
+        os.system("sudo apt update")
+        os.system("sudo apt install -y chromium-browser")
 
 def get_driver():
     """
-    Configures Selenium WebDriver to use a pre-installed Chromium binary on Streamlit Cloud.
+    Configures Selenium WebDriver to use Chromium in Streamlit Cloud.
     """
-    if not os.path.exists(CHROMIUM_PATH) or not os.path.exists(CHROMEDRIVER_PATH):
-        raise Exception("Chromium or ChromeDriver not found in the expected locations.")
+    # Ensure Chromium and ChromeDriver are installed
+    install_chromium()
 
     options = Options()
-    options.binary_location = CHROMIUM_PATH  # Use pre-installed Chromium
+    options.binary_location = "/usr/bin/chromium-browser"  # Use installed Chromium
     options.add_argument("--headless")  # Run in headless mode
     options.add_argument("--no-sandbox")  # Required for Streamlit Cloud
-    options.add_argument("--disable-dev-shm-usage")  # Prevent memory crashes
-    options.add_argument("--disable-gpu")  # Disable GPU acceleration
+    options.add_argument("--disable-dev-shm-usage")  # Prevent crashes
+    options.add_argument("--disable-gpu")  # Disable GPU rendering
     options.add_argument("--remote-debugging-port=9222")
 
-    # Launch WebDriver
-    service = Service(CHROMEDRIVER_PATH)
+    service = Service("/usr/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
