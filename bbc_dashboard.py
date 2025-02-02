@@ -20,18 +20,44 @@ import streamlit as st
 
 nltk.download("stopwords")
 
-# Step 1: Web Scraping BBC Headlines
+def install_chromium():
+    """
+    Ensures Chromium and ChromeDriver are installed on the cloud environment.
+    """
+    os.system("apt update")
+    os.system("apt install -y chromium-browser chromium-chromedriver")
+
+def get_driver():
+    """
+    Configures Selenium WebDriver to use Chromium in a cloud environment.
+    """
+    chrome_path = shutil.which("chromium-browser") or shutil.which("chromium")
+    driver_path = shutil.which("chromedriver")
+
+    if not chrome_path or not driver_path:
+        install_chromium()
+        chrome_path = shutil.which("chromium-browser") or shutil.which("chromium")
+        driver_path = shutil.which("chromedriver")
+
+    options = Options()
+    options.binary_location = chrome_path  # Use cloud-compatible Chrome binary
+    options.add_argument("--headless")  # Run headless (no UI)
+    options.add_argument("--no-sandbox")  # Required for cloud environments
+    options.add_argument("--disable-dev-shm-usage")  # Prevent crashes
+    options.add_argument("--disable-gpu")  # No GPU rendering
+    options.add_argument("--remote-debugging-port=9222")  # Debugging support
+
+    service = Service(driver_path)
+    driver = webdriver.Chrome(service=service, options=options)
+    return driver
+
 def scrape_bbc_headlines():
     """
-    Scrapes the latest headlines from BBC News using Selenium.
+    Scrapes the latest headlines from BBC News using a cloud-friendly Selenium setup.
     Returns a Pandas DataFrame containing the headlines.
     """
-    driver_path = r"C:\Users\ojaga\Desktop\chromedriver-win64\chromedriver.exe"
-    service = Service(driver_path)
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    driver = webdriver.Chrome(service=service, options=options)
-    
+    driver = get_driver()
+
     try:
         driver.get("https://www.bbc.com/news")
         WebDriverWait(driver, 20).until(
@@ -40,8 +66,9 @@ def scrape_bbc_headlines():
         soup = BeautifulSoup(driver.page_source, "html.parser")
     finally:
         driver.quit()
+
+    headlines = [item.get_text(strip=True) for item in soup.find_all("h3") if item.get_text(strip=True)]
     
-    headlines = [item.get_text(strip=True) for item in soup.find_all("h3")]
     return pd.DataFrame({"Headline": headlines, "Scraped At": datetime.now()})
 
 # Step 2: Preprocess Text Data
